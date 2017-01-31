@@ -275,16 +275,52 @@ public:
 
 		for (int i = 0; i < StrukturVektor.size(); ++i)
 		{
-			for (int j = 1; j < 5; ++j)
-			{
-				topologyMat(i, j) = 0;
-			}
+			topologyMat.col(0)(i, 0) = i;
+		}		
+		for (int i = 0; i < StrukturVektor.size(); ++i)
+		{
+			topologyMat.col(1)(i, 0) = StrukturVektor[i].getSPU();
+		}
+		for (int i = 0; i < StrukturVektor.size(); ++i)
+		{
+			topologyMat.col(2)(i, 0) = StrukturVektor[i].getSPV();
+		}
+		for (int i = 0; i < StrukturVektor.size(); ++i)
+		{
+			topologyMat.col(3)(i, 0) = StrukturVektor[i].getEPU();
+		}
+		for (int i = 0; i < StrukturVektor.size(); ++i)
+		{
+			topologyMat.col(4)(i, 0) = StrukturVektor[i].getEPV();
 		}
 	}
 	
 	void compileStructureMatrix()
 	{
-		strctMat = Eigen::MatrixXf::Zero(StrukturVektor.size() * 2, StrukturVektor.size() * 2);
+		//Testen, ob Topology existiert
+
+		//Anlegen der Topology-Untermatrix
+		Eigen::MatrixXf TUntermatrix;
+		int zeilenAnzahl = topologyMat.rows();
+		TUntermatrix = topologyMat.block(0,1, zeilenAnzahl, 4  );
+		strctMat = Eigen::MatrixXf::Zero((StrukturVektor.size()+1) * 2, (StrukturVektor.size()+1) * 2);
+		std::cout << TUntermatrix;
+		std::cout << std::endl;
+		std::cout << TUntermatrix.rows();
+
+		//Äußere Iteration über die Topologie-Untermatrix
+		for(int i = 0 ; i < TUntermatrix.rows();++i)
+		{
+			//Innere Iteration über die Elemte der Topologie-Untermatrix
+			for(int j =0 ; j < TUntermatrix.row(i).size() ; ++j)
+			{
+				for(int k = 0 ; k < TUntermatrix.row(i).size(); ++k)
+				{
+					std::cout << TUntermatrix.row(i)(j, k);
+				}
+			}
+
+		}
 	}
 
 	void setBoundaries(std::string filepath)
@@ -298,6 +334,8 @@ public:
 
 		if (fin.is_open())
 		{
+		//Testen ob der Kraftvektor vollständig gefüllt ist ! Sonst 0 setzen -> throw
+			
 			for (int i = 0; i < (StrukturVektor.size() + 1) * 2; i++)
 
 				fin >> forceVec[i];
@@ -342,12 +380,16 @@ public:
 
 	void printCompiledMatrix()
 	{
+		std::cout << std::endl;
+		std::cout << "Gesamtmatrix des Systems: " << std::endl;
 		std::cout << strctMat;
 		std::cout << std::endl;
 	}
 
 	void printForceVec()
 	{
+		std::cout << std::endl;
+		std::cout << "Kraftvektor: " << std::endl;
 		std::cout << forceVec;
 		std::cout << std::endl;
 	}
@@ -356,13 +398,15 @@ public:
 	{
 		for (int i = 0; i < StrukturVektor.size(); ++i)
 		{
-			std::cout << "Element: " << i << std::endl;
+			std::cout << "Element: " << i+1 << std::endl;
 			std::cout << StrukturVektor[i] << std::endl;
 		}
 	}
 
 	void printTopology()
 	{
+		std::cout << std::endl;
+		std::cout << "Topologiematrix des Systems: " << std::endl;
 		std::cout << topologyMat;
 		std::cout << std::endl;
 	}
@@ -373,15 +417,16 @@ int main(int argc, char** argv)
 	std::ofstream fileout;
 	Struktur * Stabwerk = new Struktur;
 	Stabwerk->initSystem(argv[1]);
-	Stabwerk->setForceVec("D:\\Programme\\Git\\Repos\\FEM2D\\FEM2D\\kraftvektor.txt");
+	//Stabwerk->setForceVec("D:\\Programme\\Git\\Repos\\FEM2D\\FEM2D\\kraftvektor.txt");
 	//Stabwerk->setBoundaries(argv[3]);
 	Stabwerk->setNrOfEDOF();
 	//Stabwerk.printMatrices();
-	Stabwerk->printMatricesInFile(fileout);
-	Stabwerk->printAllElements();
+	//Stabwerk->printMatricesInFile(fileout);
+	//Stabwerk->printAllElements();
+	Stabwerk->compileTopology();
+	//Stabwerk->printTopology();
 	Stabwerk->compileStructureMatrix();
 	Stabwerk->printCompiledMatrix();
-	Stabwerk->compileTopology();
-	Stabwerk->printTopology();
-	Stabwerk->printForceVec();
+
+	//Stabwerk->printForceVec();
 }
