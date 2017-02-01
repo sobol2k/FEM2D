@@ -301,22 +301,19 @@ public:
 
 		//Anlegen der Topology-Untermatrix
 		Eigen::MatrixXf TUntermatrix;
-		int zeilenAnzahl = topologyMat.rows();
-		TUntermatrix = topologyMat.block(0,1, zeilenAnzahl, 4  );
+		TUntermatrix = topologyMat.block(0,1, topologyMat.rows(), 4  );
 		strctMat = Eigen::MatrixXf::Zero((StrukturVektor.size()+1) * 2, (StrukturVektor.size()+1) * 2);
-		std::cout << TUntermatrix;
-		std::cout << std::endl;
-		std::cout << TUntermatrix.rows();
-
+		
 		//Äußere Iteration über die Topologie-Untermatrix
 		for(int i = 0 ; i < TUntermatrix.rows();++i)
 		{
+			//TUntermatrix.col(i).size()
 			//Innere Iteration über die Elemte der Topologie-Untermatrix
-			for(int j =0 ; j < TUntermatrix.row(i).size() ; ++j)
+			for(int j =0 ; j < 4; ++j)
 			{
-				for(int k = 0 ; k < TUntermatrix.row(i).size(); ++k)
+				for(int k = 0 ; k <4; ++k)
 				{
-					std::cout << TUntermatrix.row(i)(j, k);
+					strctMat(TUntermatrix(i, j) - 1, TUntermatrix(i, k) - 1) += StrukturVektor[i].KMAT(j,k);
 				}
 			}
 
