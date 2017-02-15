@@ -6,6 +6,8 @@
 #include <iterator>
 #include "math.h"
 
+#define MAXBUFSIZE  ((int) 1e6)
+
 using Eigen::MatrixXd;
 
 class Point2D
@@ -217,12 +219,14 @@ class Struktur
 	Eigen::MatrixXf strctMat;
 	Eigen::MatrixXf topologyMat;
 	Eigen::VectorXf forceVec;
+	std::vector<int> boundVec;
 
 public:
+
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-		void initSystem(std::string filepath){
-
+	void initSystem(std::string filepath)
+	{
 		std::ifstream dataStream;
 		dataStream.open(filepath, std::ios_base::in);
 		std::vector<std::vector<float>> dataVec;
@@ -232,7 +236,8 @@ public:
 			while (getline(dataStream, lineBuffer))
 			{
 				std::istringstream is(lineBuffer);
-				dataVec.push_back(std::vector<float>(std::istream_iterator<float>(is), std::istream_iterator<float>()));
+				dataVec.push_back(std::vector<float>(std::istream_iterator<float>(is),
+				                                     std::istream_iterator<float>()));
 			}
 		}
 		else
@@ -243,11 +248,11 @@ public:
 		for (int i = 0; i < dataVec.size(); i++)
 		{
 			FElement* felement = new FElement(dataVec[i][0],
-				dataVec[i][1],
-				dataVec[i][2],
-				dataVec[i][3],
-				dataVec[i][4],
-				dataVec[i][5]);
+			                                  dataVec[i][1],
+			                                  dataVec[i][2],
+			                                  dataVec[i][3],
+			                                  dataVec[i][4],
+			                                  dataVec[i][5]);
 			StrukturVektor.push_back(*felement);
 		}
 	}
@@ -266,7 +271,6 @@ public:
 			StrukturVektor[i].setEPU(StrukturVektor[i].getSPU() + 2);
 			StrukturVektor[i].setEPV(StrukturVektor[i].getSPV() + 2);
 		}
-
 	}
 
 	void compileTopology()
@@ -294,56 +298,105 @@ public:
 			topologyMat.col(4)(i, 0) = StrukturVektor[i].getEPV();
 		}
 	}
+
+	void readTopologyFromFile(std::string filepath)
+	{
+		
+		std::ifstream fin(filepath);
+		topologyMat.resize(3, 5);
+
+
+		if (fin.is_open())
+		{
+			for (int row = 0; row < 3; row++)
+				for (int col = 0; col < 5; col++)
+				{
+					float item = 0.0;
+					fin >> item;
+					topologyMat(row, col) = item;
+				}
+			fin.close();
+		}
 	
+	}
+
+
 	void compileStructureMatrix()
 	{
 		//Testen, ob Topology existiert
 
 		//Anlegen der Topology-Untermatrix
 		Eigen::MatrixXf TUntermatrix;
-		TUntermatrix = topologyMat.block(0,1, topologyMat.rows(), 4  );
-		strctMat = Eigen::MatrixXf::Zero((StrukturVektor.size()+1) * 2, (StrukturVektor.size()+1) * 2);
-		
+		TUntermatrix = topologyMat.block(0, 1, topologyMat.rows(), 4);
+		strctMat = Eigen::MatrixXf::Zero((StrukturVektor.size() + 1) * 2, (StrukturVektor.size() + 1) * 2);
+
 		//Äußere Iteration über die Topologie-Untermatrix
-		for(int i = 0 ; i < TUntermatrix.rows();++i)
+		for (int i = 0; i < TUntermatrix.rows(); ++i)
 		{
 			//TUntermatrix.col(i).size()
 			//Innere Iteration über die Elemte der Topologie-Untermatrix
-			for(int j =0 ; j < 4; ++j)
+			for (int j = 0; j < 4; ++j)
 			{
-				for(int k = 0 ; k <4; ++k)
+				for (int k = 0; k < 4; ++k)
 				{
-					strctMat(TUntermatrix(i, j) - 1, TUntermatrix(i, k) - 1) += StrukturVektor[i].KMAT(j,k);
+					strctMat(TUntermatrix(i, j) - 1, TUntermatrix(i, k) - 1) += StrukturVektor[i].KMAT(j, k);
+					std::cout << strctMat << std::endl << std::endl;
 				}
 			}
-
 		}
 	}
 
 	void setBoundaries(std::string filepath)
 	{
+		std::ifstream fin(filepath);
+
+		int num;
+
+		if (fin.is_open())
+		{
+			//Testen ob der Kraftvektor vollständig gefüllt ist ! Sonst 0 setzen -> throw
+
+			while (fin >> num)
+				boundVec.push_back(num);
+
+			fin.close();
+		}
+		//Setze Spalte und Zeile gleich 0 	
+		//und das Diagonalelement zu 1
+		for (int i = 0; i < boundVec.size(); ++i)
+		{
+			strctMat.col(boundVec[i] - 1).setZero();
+			strctMat.row(boundVec[i] - 1).setZero();
+			strctMat(boundVec[i] - 1, boundVec[i] - 1) = 1;
+			forceVec(boundVec[i] - 1) = 0;
+		}
 	}
 
 	void setForceVec(std::string filepath)
 	{
-		forceVec.resize((StrukturVektor.size()+1) * 2);
+		forceVec.resize((StrukturVektor.size() + 1) * 2);
 		std::ifstream fin(filepath);
 
 		if (fin.is_open())
 		{
-		//Testen ob der Kraftvektor vollständig gefüllt ist ! Sonst 0 setzen -> throw
-			
-			for (int i = 0; i < (StrukturVektor.size() + 1) * 2; i++)
+			//Testen ob der Kraftvektor vollständig gefüllt ist ! Sonst 0 setzen -> throw
 
+			for (int i = 0; i < (StrukturVektor.size() + 1) * 2; i++)
+			
 				fin >> forceVec[i];
-				
+
 			fin.close();
+		}
+
+		for(int i = 0 ; i < forceVec.size();++i)
+		{
+			forceVec(i) *= -1;
 		}
 	}
 
 	void solve()
 	{
-		Eigen::Vector3f x = strctMat.colPivHouseholderQr().solve(forceVec);
+		Eigen::VectorXf x = strctMat.householderQr().solve(forceVec);
 		std::cout << x;
 		std::cout << std::endl;
 	}
@@ -353,7 +406,7 @@ public:
 	{
 		for (int i = 0; i < StrukturVektor.size(); ++i)
 		{
-			std::cout << "Elementmatrix: " << i << std::endl;
+			std::cout << "Elementmatrix: " << i+1 << std::endl;
 			StrukturVektor[i].printKmat();
 			std::cout << std::endl;
 		}
@@ -368,7 +421,7 @@ public:
 		}
 		for (int k = 0; k < StrukturVektor.size(); ++k)
 		{
-			fout << "Elementmatrix: " << k << std::endl;
+			fout << "Elementmatrix: " << k+1 << std::endl;
 			fout << StrukturVektor[k].retKmat();
 			fout << std::endl;
 		}
@@ -414,16 +467,17 @@ int main(int argc, char** argv)
 	std::ofstream fileout;
 	Struktur * Stabwerk = new Struktur;
 	Stabwerk->initSystem(argv[1]);
-	//Stabwerk->setForceVec("D:\\Programme\\Git\\Repos\\FEM2D\\FEM2D\\kraftvektor.txt");
-	//Stabwerk->setBoundaries(argv[3]);
+	Stabwerk->setForceVec("D:\\Programme\\Git\\Repos\\FEM2D\\FEM2D\\kraftvektor.txt");
 	Stabwerk->setNrOfEDOF();
-	//Stabwerk.printMatrices();
-	//Stabwerk->printMatricesInFile(fileout);
-	//Stabwerk->printAllElements();
-	Stabwerk->compileTopology();
-	//Stabwerk->printTopology();
+	Stabwerk->printMatrices();
+	Stabwerk->printAllElements();
+	//Stabwerk->compileTopology();
+	Stabwerk->readTopologyFromFile("D:\\Programme\\Git\\Repos\\FEM2D\\FEM2D\\topology.txt");
+	Stabwerk->printTopology();
 	Stabwerk->compileStructureMatrix();
 	Stabwerk->printCompiledMatrix();
-
-	//Stabwerk->printForceVec();
+	Stabwerk->setBoundaries("D:\\Programme\\Git\\Repos\\FEM2D\\FEM2D\\boundaries.txt");
+	Stabwerk->printForceVec();
+	Stabwerk->printCompiledMatrix();
+	Stabwerk->solve();
 }
